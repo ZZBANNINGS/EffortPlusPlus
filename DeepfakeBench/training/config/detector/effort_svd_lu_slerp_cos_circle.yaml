@@ -1,0 +1,64 @@
+# Optional asymmetric Circle Loss variant reported in the paper.
+log_dir: ./logs/effort_plus_plus_circle
+model_name: effort
+clip_path: ./training/models--openai--clip-vit-large-patch14
+
+use_svd: true
+svd_trainable_rank: 1
+use_l2_norm: true
+learnable_scale: false
+initial_scale: 1.0
+head_type: cosine
+cosine_scale: 20.0
+
+alignment_weight: 0.0
+uniformity_weight: 0.5
+alignment_alpha: 2.0
+uniformity_t: 2.0
+
+slerp_enabled: true
+slerp_t_range: [0.0, 1.0]
+slerp_probability: 0.5
+
+circle_loss_weight: 0.02
+circle_scale: 32.0
+circle_margin: 0.1
+
+all_dataset: [FaceForensics++, UADFV, DeepFakeDetection, DFDC, DFDCP, FaceShifter, Celeb-DF-v2, PolyGlotFake, Celeb-DF-v3, DF40]
+train_dataset: [FaceForensics++]
+validation_dataset: [FaceForensics++]
+test_dataset: [UADFV, DeepFakeDetection, DFDC, DFDCP, FaceShifter, Celeb-DF-v2, PolyGlotFake, Celeb-DF-v3]
+
+compression: c23
+train_batchSize: 32
+test_batchSize: 32
+workers: 8
+frame_num: {train: 8, val: 32, test: 32}
+resolution: 224
+with_mask: false
+with_landmark: false
+use_data_augmentation: true
+data_aug_from_config: false
+mean: [0.48145466, 0.4578275, 0.40821073]
+std: [0.26862954, 0.26130258, 0.27577711]
+
+optimizer:
+  type: adam
+  adam:
+    lr: 0.0002
+    beta1: 0.9
+    beta2: 0.999
+    eps: 0.00000001
+    weight_decay: 0.0005
+
+lr_scheduler: null
+nEpochs: 50
+start_epoch: 1
+early_stopping: true
+early_stopping_patience: 10
+rec_iter: 100
+manualSeed: 1024
+save_ckpt: true
+metric_scoring: auc
+cuda: true
+cudnn: true

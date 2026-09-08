@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+
+# Model assets and checkpoints
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.bin
+*.onnx
+*.dat
+DeepfakeBench/training/models*/
+DeepfakeBench/training/*-patch*/
+DeepfakeBench/training/weights/
+
+# Datasets and generated manifests
+DeepfakeBench/preprocessing/dataset_json/
+DeepfakeBench/preprocessing/dataset_json_v3/
+DeepfakeBench/datasets/
+*.lmdb
+
+# Training and analysis output
+DeepfakeBench/logs/
+logs/
+runs/
+wandb/
+outputs/
+checkpoints/
+events.out.tfevents*
+*.log
+*.npy
+*.npz
+*.pkl
+*.pickle
+DeepfakeBench/*.png
+DeepfakeBench/training/*.png
+DeepfakeBench/analysis/
+DeepfakeBench/training/*.md
+
+# Local papers, notes, and archives
+/*.md
+!/README.md
+*_paper_extract.txt
+*.pdf
+*.zip
+*.tar
+*.tar.gz
+
+# Local editor/assistant metadata
+.claude/
+CLAUDE.md
