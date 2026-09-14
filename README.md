@@ -16,36 +16,12 @@ The following tables present part of the results of Effort++ on face deepfake de
 
 ![Comparison of Effort variants across deepfake datasets](figs/T3.png)
 
-## Layout
-
-```text
-DeepfakeBench/training/
-  config/detector/
-    effort_svd_lu_slerp_cos.yaml
-    effort_svd_lu_slerp_cos_circle.yaml
-    effort.yaml
-    gend.yaml
-  detectors/
-    effort_detector.py
-    gend_detector.py
-  regularization/
-  train.py
-  test.py
-  demo.py
-```
-
 ## Setup
 
 Use Python 3.8 on a machine with an NVIDIA driver compatible with CUDA 11.3. The installer installs the versions in `requirements.txt` and downloads OpenAI CLIP ViT-L/14.
 
 ```bash
 bash install.sh
-```
-
-To use a specific Python interpreter:
-
-```bash
-PYTHON_BIN=python3.8 bash install.sh
 ```
 
 To verify the environment after installation:
@@ -58,7 +34,7 @@ OMP_NUM_THREADS=1 python test_regularization.py
 
 ## Data preparation
 
-For datasets available in processed form from [DeepfakeBench](https://github.com/SCLBD/DeepfakeBench#2-download-data) or [DF40](https://github.com/YZY-stack/DF40#3-download-df40-data-after-pre-processing), the experiments directly use the released RGB face frames and JSON manifests; do not preprocess those datasets again. For datasets not provided by either project, obtain the original data and apply the [DeepfakeBench preprocessing pipeline](https://github.com/SCLBD/DeepfakeBench#3-preprocessing) to extract frames, crop faces, and generate matching JSON manifests.
+For datasets available in processed form from [DeepfakeBench](https://github.com/SCLBD/DeepfakeBench#2-download-data) or [DF40](https://github.com/YZY-stack/DF40#3-download-df40-data-after-pre-processing), the experiments directly use the released RGB face frames and JSON manifests. For datasets not provided by either project, obtain the original data and apply the [DeepfakeBench preprocessing pipeline](https://github.com/SCLBD/DeepfakeBench#3-preprocessing) to extract frames, crop faces, and generate matching JSON manifests.
 
 For DF40, follow the upstream repository instructions to obtain both real and fake samples.
 
@@ -103,17 +79,11 @@ Use `effort.yaml` for the paper's SVD-only baseline or `effort_svd_lu_slerp_cos_
 
 Download the default Effort++ checkpoint from [Release v1.0.0](https://github.com/ZZBANNINGS/EffortPlusPlus/releases/tag/v1.0.0).
 
-Download from the repository root using an authenticated GitHub CLI:
+Download from the repository root using GitHub CLI:
 
 ```bash
 gh release download v1.0.0 --repo ZZBANNINGS/EffortPlusPlus \
   --pattern ckpt_best.pth --dir DeepfakeBench/training/weights
-```
-
-Checkpoint SHA-256:
-
-```text
-1687ca48621e6087bb4c4c2475fc8f02cda6e9a737bae901dbc0432632801c17
 ```
 
 Use `training/weights/ckpt_best.pth` for `--weights_path` or `--weights` in the commands below when using this download. The CLIP backbone is still required and is downloaded by `install.sh`.
@@ -162,6 +132,6 @@ python training/demo.py \
 
 ## License
 
-Except where otherwise noted, the use of this code is restricted to the [Creative Commons Attribution-NonCommercial 4.0 International License](https://creativecommons.org/licenses/by-nc/4.0/).
+Except where otherwise noted, this repository is licensed under the [Creative Commons Attribution-NonCommercial 4.0 International License](LICENSE).
 
 This codebase is adapted from [DeepfakeBench](https://github.com/SCLBD/DeepfakeBench) and remains subject to its original license and attribution requirements.
