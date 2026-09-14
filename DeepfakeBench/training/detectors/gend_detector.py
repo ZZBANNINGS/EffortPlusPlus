@@ -1,4 +1,4 @@
-"""GenD comparison baseline used in the Effort++ paper."""
+"""Local GenD reimplementation. The paper uses the authors' released checkpoint."""
 
 from pathlib import Path
 

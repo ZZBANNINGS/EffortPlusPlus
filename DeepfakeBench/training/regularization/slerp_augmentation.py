@@ -13,11 +13,12 @@ def slerp(first, second, amount):
     dot = (first * second).sum(dim=-1, keepdim=True).clamp(-1 + 1e-7, 1 - 1e-7)
     theta = torch.acos(dot)
     sin_theta = torch.sin(theta)
+    amount_theta = amount * theta
     interpolated = (
-        torch.sin((1 - amount) * theta) / sin_theta * first
-        + torch.sin(amount * theta) / sin_theta * second
+        torch.sin(theta - amount_theta) / sin_theta * first
+        + torch.sin(amount_theta) / sin_theta * second
     )
-    return F.normalize(interpolated, p=2, dim=-1)
+    return interpolated
 
 
 class SLERPAugmentation(nn.Module):
@@ -29,7 +30,7 @@ class SLERPAugmentation(nn.Module):
         self.probability = probability
 
     def forward(self, features, labels):
-        if not self.training or random.random() >= self.probability:
+        if not self.training or random.random() > self.probability:
             return features
 
         normalized = F.normalize(features, p=2, dim=1)
@@ -41,8 +42,9 @@ class SLERPAugmentation(nn.Module):
                 continue
             partners = class_features[torch.randperm(class_features.size(0), device=features.device)]
             low, high = self.t_range
-            amount = torch.empty(
+            amount = torch.rand(
                 class_features.size(0), 1, device=features.device, dtype=features.dtype
-            ).uniform_(float(low), float(high))
+            )
+            amount = amount * (float(high) - float(low)) + float(low)
             augmented[mask] = slerp(class_features, partners, amount)
         return augmented

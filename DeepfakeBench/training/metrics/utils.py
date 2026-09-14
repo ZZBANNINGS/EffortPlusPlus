@@ -20,7 +20,9 @@ def _binary_metrics(labels, scores):
 def _video_metrics(image_paths, scores, labels):
     grouped = defaultdict(list)
     for path, score, label in zip(image_paths, scores, labels):
-        grouped[str(Path(path).parent)].append((float(score), int(label)))
+        # Manifests may contain Windows separators even when running on Linux.
+        normalized_path = str(path).replace("\\", "/")
+        grouped[str(Path(normalized_path).parent)].append((float(score), int(label)))
     video_scores = np.asarray([np.mean([item[0] for item in values]) for values in grouped.values()])
     video_labels = np.asarray([round(np.mean([item[1] for item in values])) for values in grouped.values()])
     values = _binary_metrics(video_labels, video_scores)

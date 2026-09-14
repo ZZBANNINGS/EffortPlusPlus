@@ -5,6 +5,8 @@ clip_path: ./training/models--openai--clip-vit-large-patch14
 
 use_svd: true
 svd_trainable_rank: 1
+lambda_orth: 0.0
+lambda_ksv: 0.0
 use_l2_norm: true
 learnable_scale: false
 initial_scale: 1.0

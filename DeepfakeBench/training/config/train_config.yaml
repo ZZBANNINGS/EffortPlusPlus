@@ -38,6 +38,9 @@ label_dict:
   # UADFV
   UADFV_Fake: 1
   UADFV_Real: 0
+  # PolyGlotFake
+  PolyGlotFake_Fake: 1
+  PolyGlotFake_Real: 0
   # Roop
   roop_Real: 0
   roop_Fake: 1
@@ -173,9 +176,6 @@ label_dict:
   rddm_Fake: 1
   rddm_Real: 0
 
-  pixart_Fake: 1
-  pixart_Real: 0
-
   stargan_Fake: 1
   stargan_Real: 0
 
@@ -190,6 +190,3 @@ label_dict:
 
   CollabDiff_Fake: 1
   CollabDiff_Real: 0
-
-  e4e_Fake: 1
-  e4e_Real: 0

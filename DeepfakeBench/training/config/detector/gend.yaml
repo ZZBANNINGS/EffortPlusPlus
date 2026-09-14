@@ -1,4 +1,4 @@
-# GenD comparison baseline reported in the paper.
+# Local GenD reimplementation. The paper uses the authors' released checkpoint.
 log_dir: ./logs/gend
 model_name: gend
 clip_path: ./training/models--openai--clip-vit-large-patch14

@@ -21,6 +21,8 @@ class Trainer:
         self.logger = logger
         self.metric_scoring = metric_scoring
         self.latest_validation_loss = None
+        self.latest_validation_score = None
+        self.best_validation_score_this_epoch = None
         self.best_metrics_all_time = defaultdict(
             lambda: defaultdict(
                 lambda: float("inf") if metric_scoring == "eer" else float("-inf")
@@ -34,7 +36,10 @@ class Trainer:
         self.model.device = self.device
 
 
-        self.log_dir = os.path.join(config["log_dir"], config["model_name"])
+        self.log_dir = config.get(
+            "run_dir",
+            os.path.join(config["log_dir"], config["model_name"]),
+        )
         os.makedirs(self.log_dir, exist_ok=True)
 
     @property
@@ -77,6 +82,12 @@ class Trainer:
     def train_epoch(self, epoch, train_data_loader, test_data_loaders=None):
         loss_recorders = defaultdict(Recorder)
         metric_recorders = defaultdict(Recorder)
+        validation_scores = []
+        steps_per_epoch = len(train_data_loader)
+        validation_interval = max(1, steps_per_epoch // 2)
+        start_epoch = int(self.config.get("start_epoch", 1))
+        steps_before_epoch = (epoch - start_epoch) * steps_per_epoch
+        self.best_validation_score_this_epoch = None
         self.set_train()
 
         for step, data in tqdm(enumerate(train_data_loader), total=len(train_data_loader)):
@@ -100,9 +111,28 @@ class Trainer:
                 loss_recorders.clear()
                 metric_recorders.clear()
 
-        if test_data_loaders:
-            return self.test_epoch(epoch, test_data_loaders)
-        return None
+            completed_steps = steps_before_epoch + step + 1
+            if test_data_loaders and completed_steps % validation_interval == 0:
+                self.logger.info(
+                    "Validation at epoch %d, iteration %d",
+                    epoch,
+                    step,
+                )
+                self.test_epoch(
+                    epoch,
+                    test_data_loaders,
+                    iteration=step,
+                    global_step=completed_steps,
+                )
+                if self.latest_validation_score is not None:
+                    validation_scores.append(self.latest_validation_score)
+
+        if validation_scores:
+            if self.metric_scoring == "eer":
+                self.best_validation_score_this_epoch = min(validation_scores)
+            else:
+                self.best_validation_score_this_epoch = max(validation_scores)
+        return self.best_metrics_all_time if test_data_loaders else None
 
     @torch.no_grad()
     def inference(self, data):
@@ -130,9 +160,10 @@ class Trainer:
         new = metrics[self.metric_scoring]
         return new < old if self.metric_scoring == "eer" else new > old
 
-    def test_epoch(self, epoch, test_data_loaders):
+    def test_epoch(self, epoch, test_data_loaders, iteration=None, global_step=None):
         self.set_eval()
         validation_losses = []
+        validation_scores = []
         for dataset_name, loader in test_data_loaders.items():
             losses, probabilities, labels = self.test_one_dataset(loader)
             overall = losses["overall"].average()
@@ -144,21 +175,31 @@ class Trainer:
                 y_true=labels,
                 img_names=loader.dataset.data_dict["image"],
             )
+            if self.metric_scoring in metrics:
+                validation_scores.append(float(metrics[self.metric_scoring]))
             if self.is_improved(dataset_name, metrics):
                 self.best_metrics_all_time[dataset_name].update(metrics)
                 if self.config.get("save_ckpt", True):
-                    self.save_checkpoint(dataset_name, f"epoch={epoch}")
+                    details = f"epoch={epoch}"
+                    if iteration is not None:
+                        details += f", iteration={iteration}"
+                    self.save_checkpoint(dataset_name, details)
                 self.save_metrics(dataset_name, metrics)
 
             for name, value in metrics.items():
                 if name not in {"pred", "label", "dataset_dict"}:
                     self.get_writer("validation", dataset_name, name).add_scalar(
-                        f"metric/{name}", value, epoch
+                        f"metric/{name}",
+                        value,
+                        global_step if global_step is not None else epoch,
                     )
             self.logger.info("%s metrics: %s", dataset_name, metrics)
 
         self.latest_validation_loss = (
             float(np.mean(validation_losses)) if validation_losses else None
+        )
+        self.latest_validation_score = (
+            float(np.mean(validation_scores)) if validation_scores else None
         )
         self.set_train()
         return self.best_metrics_all_time

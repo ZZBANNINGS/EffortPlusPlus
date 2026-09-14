@@ -102,11 +102,53 @@ def main():
         raise RuntimeError("Effort++ training requires a CUDA-capable GPU")
     torch.cuda.set_device(0)
 
-    os.makedirs(config["log_dir"], exist_ok=True)
-    logger = create_logger(os.path.join(config["log_dir"], "training.log"))
-    logger.info("Configuration:\n%s", yaml.safe_dump(config, sort_keys=False))
-
     init_seed(config)
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+    run_dir = os.path.join(
+        config["log_dir"],
+        f"{config['model_name']}_{timestamp}",
+    )
+    os.makedirs(run_dir, exist_ok=False)
+    config["run_dir"] = run_dir
+
+    config_path = os.path.join(run_dir, "config.yaml")
+    with open(config_path, "w", encoding="utf-8") as handle:
+        yaml.safe_dump(config, handle, sort_keys=False)
+
+    logger = create_logger(os.path.join(run_dir, "training.log"))
+    logger.info("Run directory: %s", run_dir)
+    logger.info("Full configuration saved to %s", config_path)
+    logger.info(
+        "Training: model=%s, train=%s, validation=%s, batch=%d, workers=%d, "
+        "epochs=%d, early_stopping=%s, patience=%d, seed=%s",
+        config["model_name"],
+        ",".join(config["train_dataset"]),
+        ",".join(config["validation_dataset"]),
+        config["train_batchSize"],
+        config["workers"],
+        config["nEpochs"],
+        config.get("early_stopping", True),
+        config.get("early_stopping_patience", 10),
+        config.get("manualSeed"),
+    )
+    logger.info(
+        "Method: SVD=%s (rank=%d), L2=%s, head=%s, uniformity_weight=%g, "
+        "SLERP=%s (probability=%g)",
+        config.get("use_svd", False),
+        config.get("svd_trainable_rank", 1),
+        config.get("use_l2_norm", False),
+        config.get("head_type", "linear"),
+        config.get("uniformity_weight", 0.0),
+        config.get("slerp_enabled", False),
+        config.get("slerp_probability", 0.0),
+    )
+    logger.info(
+        "Paths: data=%s, manifests=%s, CLIP=%s",
+        config["dataset_root_rgb"],
+        config["dataset_json_folder"],
+        config.get("clip_path", ""),
+    )
+
     cudnn.benchmark = bool(config.get("cudnn", True))
 
 
@@ -118,7 +160,9 @@ def main():
 
     early_stopping = bool(config.get("early_stopping", True))
     patience = int(config.get("early_stopping_patience", 10))
-    best_validation_loss = float("inf")
+    scoring = config["metric_scoring"]
+    minimize_score = scoring == "eer"
+    best_validation_score = float("inf") if minimize_score else float("-inf")
     stale_epochs = 0
     best_metric = None
 
@@ -130,16 +174,33 @@ def main():
             parse_metric_for_print(best_metric),
         )
 
-        validation_loss = trainer.latest_validation_loss
-        if early_stopping and validation_loss is not None:
-            if validation_loss < best_validation_loss:
-                best_validation_loss = validation_loss
+        validation_score = trainer.best_validation_score_this_epoch
+        if early_stopping and validation_score is not None:
+            improved = (
+                validation_score < best_validation_score
+                if minimize_score
+                else validation_score > best_validation_score
+            )
+            if improved:
+                best_validation_score = validation_score
                 stale_epochs = 0
             else:
                 stale_epochs += 1
-                logger.info("Early stopping patience: %d/%d", stale_epochs, patience)
+                logger.info(
+                    "Early stopping patience: %d/%d (best %s=%.4f, current=%.4f)",
+                    stale_epochs,
+                    patience,
+                    scoring,
+                    best_validation_score,
+                    validation_score,
+                )
             if stale_epochs >= patience:
-                logger.info("Early stopping at epoch %d", epoch)
+                logger.info(
+                    "Early stopping at epoch %d (no %s improvement for %d epochs)",
+                    epoch,
+                    scoring,
+                    patience,
+                )
                 break
 
     for writer in trainer.writers.values():

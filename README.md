@@ -93,13 +93,15 @@ python training/train.py \
   --validation_dataset Celeb-DF-v2
 ```
 
-Training uses Adam with learning rate 2e-4, betas (0.9, 0.999), epsilon 1e-8, weight decay 5e-4, and batch size 32. It runs for at most 50 epochs and stops after 10 epochs without validation-loss improvement.
+Training uses Adam with learning rate 2e-4, betas (0.9, 0.999), epsilon 1e-8, weight decay 5e-4, and batch size 32. It runs for at most 50 epochs and stops after 10 epochs without validation AUC improvement. The same validation AUC is used to select `ckpt_best.pth`.
 
-Use `effort.yaml` for the paper's SVD-only baseline or `effort_svd_lu_slerp_cos_circle.yaml` for the optional Circle variant.
+Each training run creates an independent timestamped directory under `log_dir`. Its `config.yaml`, `training.log`, checkpoints, metrics, and TensorBoard files are kept together and are not overwritten by later runs.
+
+Use `effort.yaml` for the paper's SVD-only baseline or `effort_svd_lu_slerp_cos_circle.yaml` for the optional Circle variant. `gend.yaml` is a local GenD reimplementation; the paper evaluates the authors' released checkpoint.
 
 ## Checkpoints
 
-Download the default Effort++ checkpoint and matching configuration from [Release v1.0.0](https://github.com/ZZBANNINGS/EffortPlusPlus/releases/tag/v1.0.0).
+Download the default Effort++ checkpoint from [Release v1.0.0](https://github.com/ZZBANNINGS/EffortPlusPlus/releases/tag/v1.0.0).
 
 Download from the repository root using an authenticated GitHub CLI:
 
@@ -119,10 +121,10 @@ Use `training/weights/ckpt_best.pth` for `--weights_path` or `--weights` in the 
 For the training command above, the best checkpoint selected on Celeb-DF-v2 is saved to:
 
 ```text
-DeepfakeBench/logs/effort_plus_plus/effort/test/Celeb-DF-v2/ckpt_best.pth
+DeepfakeBench/logs/effort_plus_plus/effort_<timestamp>/test/Celeb-DF-v2/ckpt_best.pth
 ```
 
-In general, the output path is `<log_dir>/<model_name>/test/<validation_dataset>/ckpt_best.pth`, relative to `DeepfakeBench/`. A downloaded checkpoint may be stored anywhere; pass its path through `--weights_path` or `--weights`.
+In general, the output path is `<log_dir>/<model_name>_<timestamp>/test/<validation_dataset>/ckpt_best.pth`, relative to `DeepfakeBench/`. The exact run directory is printed when training starts. A downloaded checkpoint may be stored anywhere; pass its path through `--weights_path` or `--weights`.
 
 ## Evaluate
 
@@ -132,8 +134,10 @@ Run from `DeepfakeBench/`:
 python training/test.py \
   --detector_path training/config/detector/effort_svd_lu_slerp_cos.yaml \
   --test_dataset Celeb-DF-v2 DFDC DFDCP \
-  --weights_path logs/effort_plus_plus/effort/test/Celeb-DF-v2/ckpt_best.pth
+  --weights_path training/weights/ckpt_best.pth
 ```
+
+To evaluate a newly trained checkpoint, replace `training/weights/ckpt_best.pth` with the checkpoint path printed by the training command.
 
 ## Inference
 
@@ -142,7 +146,7 @@ Run from `DeepfakeBench/` with an already cropped face image or a directory of c
 ```bash
 python training/demo.py \
   --detector_config training/config/detector/effort_svd_lu_slerp_cos.yaml \
-  --weights logs/effort_plus_plus/effort/test/Celeb-DF-v2/ckpt_best.pth \
+  --weights training/weights/ckpt_best.pth \
   --image /path/to/cropped-face-or-directory
 ```
 

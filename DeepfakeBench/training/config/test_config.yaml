@@ -37,6 +37,9 @@ label_dict:
   # UADFV
   UADFV_Fake: 1
   UADFV_Real: 0
+  # PolyGlotFake
+  PolyGlotFake_Fake: 1
+  PolyGlotFake_Real: 0
   # roop
   roop_Fake: 1
   roop_Real: 0
@@ -141,9 +144,6 @@ label_dict:
 
   dalle2_face_Fake: 1
   dalle2_face_Real: 0
-
-  MidJourney_Fake: 1
-  MidJourney_Real: 0
 
   heygen_Fake: 1
   heygen_Real: 0

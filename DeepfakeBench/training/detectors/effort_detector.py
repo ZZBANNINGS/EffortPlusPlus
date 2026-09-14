@@ -34,9 +34,8 @@ class CosineClassifier(nn.Module):
             self.register_buffer("scale", torch.tensor(float(scale)))
 
     def forward(self, features):
-        features = F.normalize(features, p=2, dim=1)
         prototypes = F.normalize(self.linear.weight, p=2, dim=1)
-        return self.scale * F.linear(features, prototypes)
+        return F.linear(features, prototypes) * self.scale
 
 
 @DETECTOR.register_module(module_name="effort")
@@ -89,6 +88,8 @@ class EffortDetector(nn.Module):
             m=float(self.config.get("circle_margin", 0.1)),
             real_only_pos=True,
         )
+        self.lambda_orth = float(self.config.get("lambda_orth", 0.0))
+        self.lambda_ksv = float(self.config.get("lambda_ksv", 0.0))
 
     def _build_backbone(self):
         default_path = Path(__file__).resolve().parents[1] / "models--openai--clip-vit-large-patch14"
@@ -138,7 +139,14 @@ class EffortDetector(nn.Module):
         if self.circle_loss_weight > 0:
             circle_loss = self.circle_loss(features, labels)
 
-        overall = ce_loss + metric_losses["total_loss"] + self.circle_loss_weight * circle_loss
+        ksv_loss, orth_loss = self._svd_regularization(features)
+        overall = (
+            ce_loss
+            + metric_losses["total_loss"]
+            + self.circle_loss_weight * circle_loss
+            + self.lambda_ksv * ksv_loss
+            + self.lambda_orth * orth_loss
+        )
         return {
             "overall": overall,
             "ce_loss": ce_loss,
@@ -146,7 +154,26 @@ class EffortDetector(nn.Module):
             "uniformity_loss": metric_losses["uniformity_loss"],
             "hypersphere_loss": metric_losses["total_loss"],
             "circle_loss": circle_loss,
+            "ksv_loss": ksv_loss,
+            "orth_loss": orth_loss,
         }
+
+    def _svd_regularization(self, reference):
+        zero = reference.sum() * 0.0
+        if not self.training or (self.lambda_ksv == 0.0 and self.lambda_orth == 0.0):
+            return zero, zero
+
+        ksv_term = zero
+        orth_term = zero
+        count = 0
+        for module in self.backbone.modules():
+            if isinstance(module, SVDResidualLinear):
+                ksv_term = ksv_term + module.compute_keepsv_loss()
+                orth_term = orth_term + module.compute_orthogonal_loss()
+                count += 1
+        if count == 0:
+            return zero, zero
+        return ksv_term / count, orth_term / count
 
     def get_train_metrics(self, data_dict, pred_dict):
         labels = pred_dict.get("loss_label")
@@ -189,6 +216,21 @@ class SVDResidualLinear(nn.Module):
     def forward(self, inputs):
         return F.linear(inputs, self.compute_current_weight(), self.bias)
 
+    def compute_orthogonal_loss(self):
+        u_cat = torch.cat((self.U_r, self.U_residual), dim=1)
+        v_cat = torch.cat((self.V_r, self.V_residual), dim=0)
+        uut = u_cat @ u_cat.t()
+        vvt = v_cat @ v_cat.t()
+        identity_u = torch.eye(uut.size(0), device=uut.device, dtype=uut.dtype)
+        identity_v = torch.eye(vvt.size(0), device=vvt.device, dtype=vvt.dtype)
+        return 0.5 * torch.norm(uut - identity_u, p="fro") + 0.5 * torch.norm(
+            vvt - identity_v, p="fro"
+        )
+
+    def compute_keepsv_loss(self):
+        current_fnorm = torch.norm(self.compute_current_weight(), p="fro")
+        return torch.abs(current_fnorm ** 2 - self.weight_original_fnorm ** 2)
+
 
 def replace_with_svd_residual(module, trainable_rank):
     """Replace one Linear layer while preserving its initial function exactly."""
@@ -222,6 +264,12 @@ def replace_with_svd_residual(module, trainable_rank):
     replacement.U_residual = nn.Parameter(U[:, decomposition_rank:].clone())
     replacement.S_residual = nn.Parameter(S[decomposition_rank:].clone())
     replacement.V_residual = nn.Parameter(Vh[decomposition_rank:].clone())
+    # Rebuilt from the original CLIP weights; absent from legacy checkpoints.
+    replacement.register_buffer(
+        "weight_original_fnorm",
+        torch.norm(module.weight.detach(), p="fro"),
+        persistent=False,
+    )
     return replacement
 
 

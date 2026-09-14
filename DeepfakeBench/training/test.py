@@ -44,10 +44,11 @@ def load_checkpoint(model, path):
     checkpoint = torch.load(path, map_location="cpu")
     state = checkpoint.get("state_dict", checkpoint)
     state = {
-        key[7:] if key.startswith("module.") else key: value
+        key.replace("module.", ""): value
         for key, value in state.items()
     }
-    model.load_state_dict(state, strict=True)
+    model.load_state_dict(state, strict=False)
+    print("===> Load checkpoint done!")
 
 
 @torch.inference_mode()
@@ -86,6 +87,10 @@ def main():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = DETECTOR[config["model_name"]](config)
+    total_trainable_params = sum(
+        parameter.numel() for parameter in model.parameters() if parameter.requires_grad
+    )
+    print(f"Total number of trainable parameters in the model: {total_trainable_params}")
     load_checkpoint(model, args.weights_path)
     model.to(device).eval()
 

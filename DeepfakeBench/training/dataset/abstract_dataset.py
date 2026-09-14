@@ -284,17 +284,18 @@ class DeepfakeAbstractBaseDataset(data.Dataset):
                         frame_paths = sorted(frame_paths, key=lambda x: int(x.split('/')[-1].split('.')[0]))
 
 
-                # Consider the case when the actual number of frames (e.g., 270) is larger than the specified (i.e., self.frame_num=32)
-                # In this case, we select self.frame_num frames from the original 270 frames
+                # JSON lists are typically ~32 frames already spaced along the video.
+                # If a list is longer than frame_num, keep only the first frame_num entries
+                # (DeepfakeBench prefix; not a second uniform subsample of the original video).
                 total_frames = len(frame_paths)
                 if self.frame_num < total_frames:
                     total_frames = self.frame_num
                     if self.video_level:
-                        # Select clip_size continuous frames
+                        # After the cap, start is always 0, so this is still the prefix.
                         start_frame = random.randint(0, total_frames - self.frame_num)
-                        frame_paths = frame_paths[start_frame:start_frame + self.frame_num]  # update total_frames
+                        frame_paths = frame_paths[start_frame:start_frame + self.frame_num]
                     else:
-                        # Select self.frame_num frames evenly distributed throughout the video
+                        # step is 1 after the cap, so this keeps indices 0 .. frame_num-1.
                         step = total_frames // self.frame_num
                         frame_paths = [frame_paths[i] for i in range(0, total_frames, step)][:self.frame_num]
 

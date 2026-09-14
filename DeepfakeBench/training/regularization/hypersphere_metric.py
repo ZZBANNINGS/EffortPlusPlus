@@ -38,7 +38,13 @@ class HypersphereMetricLearning(nn.Module):
         self.uniformity_t = uniformity_t
 
     def forward(self, embeddings, labels):
-        embeddings = F.normalize(embeddings, p=2, dim=1)
+        norms = embeddings.norm(p=2, dim=1)
+        if not torch.allclose(
+            norms,
+            torch.ones(embeddings.size(0), device=embeddings.device),
+            atol=1e-4,
+        ):
+            embeddings = F.normalize(embeddings, p=2, dim=1)
         align = alignment_loss(embeddings, labels, self.alignment_alpha)
         uniform = uniformity_loss(embeddings, self.uniformity_t)
         total = self.alignment_weight * align + self.uniformity_weight * uniform
